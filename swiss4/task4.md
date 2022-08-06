@@ -40,8 +40,8 @@ Build your program with go build -o swiss main.go.
 
 Invoke this program twice with the parameters:
 
-    --json hash /tmp/file1.txt http://example.com /tmp/file2.txt /tmp/file3.txt
-    count /tmp/file1.txt http://example.com /tmp/file2.txt /tmp/file3.txt
+    --json hash ./tmp/file1.txt http://example.com ./tmp/file2.txt ./tmp/file3.txt
+    count ./tmp/file1.txt http://example.com ./tmp/file2.txt ./tmp/file3.txt
 
 Put the output for both runs into a file called swiss4.txt.
 

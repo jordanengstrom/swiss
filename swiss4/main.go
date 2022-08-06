@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/abadojack/whatlanggo"
 	"github.com/example/swiss/count"
@@ -20,19 +22,57 @@ type Outputter interface {
 	String() string
 }
 
-type StringOutput struct {
+type Result struct {
+	Resource string `json:"resource"`
+	Output   string `json:"output,omitempty"`
+	Error    string `json:"error,omitempty"`
 }
 
-func (*StringOutput) Add(resource string, output string)     {}
-func (*StringOutput) AddError(resource string, error string) {}
-func (*StringOutput) String() string                         {}
+type StringOutput struct {
+	// StringOutput will build up a slice of strings in the same format
+	// as before (resource on one line, result or error on the next)
+	Results []string `json:"results"`
+}
+
+func (so *StringOutput) Add(resource string, output string) {
+	so.Results = append(so.Results, resource, output)
+}
+
+func (so *StringOutput) AddError(resource string, err string) {
+	so.Results = append(so.Results, resource, err)
+}
+
+func (so *StringOutput) String() string {
+	return strings.Join(so.Results[:], "\n")
+}
 
 type JSONOutput struct {
+	// JSONOutput returns JSON output when String is called.
+	Operation string   `json:"operation"`
+	Results   []Result `json:"results"`
 }
 
-func (*JSONOutput) Add(resource string, output string)     {}
-func (*JSONOutput) AddError(resource string, error string) {}
-func (*JSONOutput) String() string                         {}
+func (jo *JSONOutput) Add(resource string, output string) {
+	jo.Results = append(jo.Results, Result{
+		Resource: resource,
+		Output:   output,
+	})
+}
+
+func (jo *JSONOutput) AddError(resource string, err string) {
+	jo.Results = append(jo.Results, Result{
+		Resource: resource,
+		Error:    err,
+	})
+}
+
+func (jo *JSONOutput) String() string {
+	out, err := json.Marshal(jo)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return string(out)
+}
 
 func main() {
 	app := &cli.App{}
@@ -41,34 +81,23 @@ func main() {
 			Name:   "count",
 			Usage:  "count the bytes for one or more resources",
 			Action: counter,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "json",
-					Usage: "write output as JSON.",
-				},
-			},
 		},
 		{
 			Name:   "lang",
 			Usage:  "find the language for one or more resources",
 			Action: langDetector,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "json",
-					Usage: "write output as JSON.",
-				},
-			},
 		},
 		{
 			Name:   "hash",
 			Usage:  "find the language for one or more resources",
 			Action: hasher,
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "json",
-					Usage: "write output as JSON.",
-				},
-			},
+		},
+	}
+
+	app.Flags = []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "json",
+			Usage: "write output as JSON.",
 		},
 	}
 
@@ -82,22 +111,21 @@ func main() {
 }
 
 func process(c *cli.Context, command func(io.Reader) (string, error)) error {
+	outPutter := findOutputter(c)
 	for _, resource := range c.Args().Slice() {
-		fmt.Println(resource)
 		resourceRc, err := toReadCloser(resource)
 		if err != nil {
-			fmt.Println(err)
+			outPutter.AddError(resource, err.Error())
 			continue
 		}
-
 		result, err := command(resourceRc)
 		if err != nil {
-			fmt.Println(err)
+			outPutter.AddError(resource, err.Error())
 			continue
 		}
-
-		fmt.Println(result)
+		outPutter.Add(resource, result)
 	}
+	fmt.Println(outPutter.String())
 	return nil
 }
 
@@ -164,4 +192,13 @@ func hasher(c *cli.Context) error {
 		return err
 	}
 	return nil
+}
+
+func findOutputter(c *cli.Context) Outputter {
+	if c.IsSet("json") {
+		return &JSONOutput{
+			Operation: c.Command.Name,
+		}
+	}
+	return new(StringOutput)
 }
