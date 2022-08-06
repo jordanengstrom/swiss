@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "args": [
-                "hash", "./tmp/file1.txt"
+                "count", "http://example.com"
                 ]
         }
     ]

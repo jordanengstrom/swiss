@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -26,11 +24,6 @@ func main() {
 			Name:   "lang",
 			Usage:  "find the language for one or more resources",
 			Action: langDetector,
-		},
-		{
-			Name:   "hash",
-			Usage:  "find the language for one or more resources",
-			Action: hasher,
 		},
 	}
 
@@ -83,6 +76,7 @@ func toReadCloser(rp string) (io.ReadCloser, error) {
 		if err != nil {
 			return nil, err
 		}
+		// defer res.Close()
 
 		return res, nil
 	} else {
@@ -90,18 +84,10 @@ func toReadCloser(rp string) (io.ReadCloser, error) {
 		if err != nil {
 			return nil, err
 		}
+		// defer res.Close()
 
 		return res, nil
 	}
-}
-
-func sha256hash(r io.Reader) (string, error) {
-	h := sha256.New()
-	if _, err := io.Copy(h, r); err != nil {
-		return "", err
-	}
-	cksum := hex.EncodeToString(h.Sum(nil))
-	return cksum, nil
 }
 
 func counter(c *cli.Context) error {
@@ -114,14 +100,6 @@ func counter(c *cli.Context) error {
 
 func langDetector(c *cli.Context) error {
 	err := process(c, detect)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func hasher(c *cli.Context) error {
-	err := process(c, sha256hash)
 	if err != nil {
 		return err
 	}

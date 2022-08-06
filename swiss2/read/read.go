@@ -21,11 +21,3 @@ func FromFile(filename string) (io.ReadCloser, error) {
 	}
 	return data, nil
 }
-
-func ResourceHash(resourceLoc string) (io.ReadCloser, error) {
-	f, err := os.Open(resourceLoc)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-}
