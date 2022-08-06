@@ -15,7 +15,6 @@ func FromWeb(url string) (io.ReadCloser, error) {
 }
 
 func FromFile(filename string) (io.ReadCloser, error) {
-	// FIXME
 	data, err := os.Open(filename)
 	if err != nil {
 		return nil, err

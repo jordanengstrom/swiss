@@ -1,4 +1,4 @@
-module github.com/example/processor
+module github.com/example/swiss
 
 go 1.18
 

@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/abadojack/whatlanggo"
-	"github.com/example/processor/count"
-	"github.com/example/processor/read"
+	"github.com/example/swiss/count"
+	"github.com/example/swiss/read"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,12 +19,12 @@ func main() {
 		{
 			Name:   "count",
 			Usage:  "count the bytes in a resource",
-			Action: processWrapper,
+			Action: counter,
 		},
 		{
 			Name:   "lang",
 			Usage:  "find the language of a resource",
-			Action: processWrapper,
+			Action: langDetector,
 		},
 	}
 
@@ -38,58 +37,25 @@ func main() {
 	app.Run(os.Args)
 }
 
-func process(cmd, rp string) (string, error) {
-	if rp[0:7] == "http://" || rp[0:8] == "https://" {
-		res, err := read.FromWeb(rp)
+func process(c *cli.Context, command func(io.Reader) (string, error)) error {
+	if c.Args().Len() != 1 {
+		return errors.New("expected one resource")
+	} else if c.Args().Len() == 1 {
+		cmd, err := toReadCloser(c.Args().First())
 		if err != nil {
-			return "", err
+			return err
 		}
-		defer res.Close()
+		// defer cmd.Close()
 
-		if cmd == "count" {
-			n, err := count.FromReader(res)
-			if err != nil {
-				return "", err
-			}
-			return strconv.Itoa(n), nil
-		} else if cmd == "lang" {
-			l, err := detect(res)
-
-			if err != nil {
-				return "", err
-			}
-
-			return l, nil
-		} else {
-			return "", errors.New("unknown command")
-		}
-
-	} else {
-		res, err := read.FromFile(rp)
+		res, err := command(cmd)
 		if err != nil {
-			return "", err
+			return err
 		}
-		defer res.Close()
+		// defer res.Close()
 
-		if cmd == "count" {
-			n, err := count.FromReader(res)
-			if err != nil {
-				return "", err
-			}
-
-			return strconv.Itoa(n), nil
-		} else if cmd == "lang" {
-			l, err := detect(res)
-
-			if err != nil {
-				return "", err
-			}
-
-			return l, nil
-		} else {
-			return "", errors.New("unknown command")
-		}
+		fmt.Println(res)
 	}
+	return nil
 }
 
 func detect(r io.Reader) (string, error) {
@@ -106,15 +72,38 @@ func detect(r io.Reader) (string, error) {
 	return lang, nil
 }
 
-func processWrapper(c *cli.Context) error {
-	if c.Args().Len() > 1 {
-		return cli.Exit("expected one resource", 1)
-	} else if c.Args().Len() == 1 {
-		str, err := process(c.Command.Name, c.Args().First())
+func toReadCloser(rp string) (io.ReadCloser, error) {
+	if rp[0:7] == "http://" || rp[0:8] == "https://" {
+		res, err := read.FromWeb(rp)
 		if err != nil {
-			return cli.Exit(err, 1)
+			return nil, err
 		}
-		fmt.Println(str)
+		// defer res.Close()
+
+		return res, nil
+	} else {
+		res, err := read.FromFile(rp)
+		if err != nil {
+			return nil, err
+		}
+		// defer res.Close()
+
+		return res, nil
+	}
+}
+
+func counter(c *cli.Context) error {
+	err := process(c, count.FromReader)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func langDetector(c *cli.Context) error {
+	err := process(c, detect)
+	if err != nil {
+		return err
 	}
 	return nil
 }
